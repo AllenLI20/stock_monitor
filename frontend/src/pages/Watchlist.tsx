@@ -188,14 +188,28 @@ const Watchlist: React.FC = () => {
     fetchWatchlistStocks(pagination.current, pagination.pageSize);
   }, [fetchWatchlistStocks, pagination.current, pagination.pageSize]);
 
-  const handleTableChange = (newPagination: any) => {
+  const handleTableChange = (newPagination: any, antTableFilters: any, sorter: any) => {
     // Table组件的onChange事件在排序或过滤时也会触发，但Pagination组件本身会处理页码和每页数量的变化
     // 所以这里只需要确保排序或过滤时，fetchWatchlistStocks被调用即可，但Watchlist目前没有排序和过滤功能
     // 因此，这个函数在引入Pagination组件后，可以暂时不做实际操作，或者只处理排序/过滤（如果以后添加）
     // 如果 Table 组件需要处理排序或过滤，则可以在这里添加逻辑
-    // const currentPage = newPagination.current;
-    // const pageSize = newPagination.pageSize;
-    // fetchWatchlistStocks(currentPage, pageSize);
+    const currentPage = newPagination.current;
+    const pageSize = newPagination.pageSize;
+
+    let sortField = undefined;
+    let sortOrder: 'asc' | 'desc' | undefined = undefined;
+    if (sorter && sorter.field && sorter.order) {
+      sortField = sorter.field as string;
+      sortOrder = sorter.order === 'ascend' ? 'asc' : (sorter.order === 'descend' ? 'desc' : undefined);
+    }
+
+    setPagination(prev => ({
+      ...prev, // 解构 prev，保留所有属性，包括 pageSizeOptions
+      current: currentPage,
+      pageSize: pageSize,
+      // total 已经在 fetchWatchlistStocks 中更新，这里不需要再从 newPagination 获取
+    }));
+    fetchWatchlistStocks(currentPage, pageSize);
   };
 
   const handlePageChange = (page: number, pageSize?: number) => {

@@ -27,7 +27,7 @@ const FullStockList: React.FC = () => {
     pageSize: 10,
     total: 0,
     showSizeChanger: true, // 允许改变每页显示数量
-    pageSizeOptions: ['10', '20', '50', '100'], // 可选的每页显示数量
+    pageSizeOptions: [10, 20, 50, 100], // 可选的每页显示数量
     showQuickJumper: true, // 允许快速跳转到某一页
   });
 
@@ -114,8 +114,8 @@ const FullStockList: React.FC = () => {
   const handleTableChange = (newPagination: any, antTableFilters: any, sorter: any) => {
     // 这里不再需要直接更新 pagination state，因为 Pagination 组件会通过 onShowSizeChange 和 onChange 回调处理
     // 但仍然需要从 newPagination 中获取 current 和 pageSize 来调用 fetchStocks
-    const currentPage = newPagination.current;
-    const pageSize = newPagination.pageSize;
+    const currentPage = newPagination.current || pagination.current; // 使用当前pagination状态作为fallback
+    const pageSize = newPagination.pageSize || pagination.pageSize; // 使用当前pagination状态作为fallback
 
     // 处理排序
     let sortField = undefined;
@@ -130,7 +130,12 @@ const FullStockList: React.FC = () => {
     // 处理筛选 (目前只处理market)
     const marketFilter = antTableFilters.market ? antTableFilters.market[0] : filters.market;
     // 这里需要更新 pagination state 中的 current 和 pageSize，以保持与 Pagination 组件同步
-    setPagination(prev => ({ ...prev, current: currentPage, pageSize: pageSize }));
+    setPagination(prev => ({
+      ...prev, // 解构 prev，保留所有属性，包括 pageSizeOptions
+      current: currentPage,
+      pageSize: pageSize,
+      // total 已经在 fetchStocks 中更新，这里不需要再从 newPagination 获取
+    }));
     fetchStocks(currentPage, pageSize, marketFilter, filters.searchQuery, sortField, sortOrder);
   };
 
