@@ -184,7 +184,7 @@ const FullStockList: React.FC = () => {
       message.success(response.data.message || `${marketType} 全市场股票数据更新任务已成功触发！`);
       // 启动进度轮询
       if (!progressIntervalId) {
-        const id = setInterval(fetchUpdateStatus, 10000) as unknown as number; // 每10秒查询一次
+        const id = setInterval(fetchUpdateStatus, 15000) as unknown as number; // 每15秒查询一次
         setProgressIntervalId(id);
       }
     } catch (error) {
@@ -203,7 +203,7 @@ const FullStockList: React.FC = () => {
       message.success(response.data.message || '全市场股票数据整体更新任务已成功触发！');
       // 启动进度轮询
       if (!progressIntervalId) {
-        const id = setInterval(fetchUpdateStatus, 5000) as unknown as number; // 每5秒查询一次
+        const id = setInterval(fetchUpdateStatus, 10000) as unknown as number; // 每10秒查询一次
         setProgressIntervalId(id);
       }
     } catch (error) {

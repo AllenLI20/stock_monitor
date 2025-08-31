@@ -201,14 +201,22 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    const id = setInterval(fetchUpdateStatus, 2000) as unknown as number; // 每2秒查询一次
+    // 智能轮询：根据更新状态调整频率
+    let id: number;
+    if (updateProgress['overall']?.status === '进行中') {
+      // 更新进行中时，每3秒查询一次
+      id = setInterval(fetchUpdateStatus, 3000) as unknown as number;
+    } else {
+      // 空闲状态时，每300秒查询一次
+      id = setInterval(fetchUpdateStatus, 300000) as unknown as number;
+    }
     setProgressIntervalId(id);
     return () => {
       if (id) {
         clearInterval(id);
       }
     };
-  }, [refreshKey]); // Add refreshKey to dependencies
+  }, [refreshKey, updateProgress]); // 添加 updateProgress 依赖
 
   const fetchUpdateStatus = async () => {
     try {

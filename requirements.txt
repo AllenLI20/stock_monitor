@@ -1,6 +1,7 @@
 --index-url https://pypi.mirrors.ustc.edu.cn/simple/
 
 aiohttp
+psutil
 akshare==1.17.44
 asyncio-throttle==1.0.2
 fastapi==0.104.1

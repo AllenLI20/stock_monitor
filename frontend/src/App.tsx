@@ -14,7 +14,13 @@ import Watchlist from './pages/Watchlist'; // 导入新页面
 
 // 获取后端端口，优先从环境变量中读取，否则使用默认值5000
 const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || 5000;
-export const API_BASE_URL = `http://localhost:${BACKEND_PORT}/stock_api`;
+
+// 根据环境动态选择后端地址
+// 检测是否在服务器环境中运行（通过检查当前域名）
+const isServerEnvironment = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+const BACKEND_HOST = isServerEnvironment ? '43.143.50.170' : 'localhost';
+
+export const API_BASE_URL = `http://${BACKEND_HOST}:${BACKEND_PORT}/stock_api`;
 
 // 自定义主题配置
 const theme = {
@@ -47,10 +53,18 @@ function App() {
 
     fetchUpdateStatus(); // 立即获取一次状态
 
-    const intervalId = setInterval(fetchUpdateStatus, 3000); // 每3秒查询一次
+    // 智能轮询：根据状态调整频率
+    let intervalId: NodeJS.Timeout;
+    if (updateStatus.status === "进行中") {
+      // 更新进行中时，每5秒查询一次
+      intervalId = setInterval(fetchUpdateStatus, 5000);
+    } else {
+      // 空闲状态时，每300秒查询一次
+      intervalId = setInterval(fetchUpdateStatus, 300000);
+    }
 
     return () => clearInterval(intervalId);
-  }, []); // 空依赖数组确保只在组件挂载时执行一次
+  }, [updateStatus.status]); // 根据状态变化调整轮询
 
   useEffect(() => {
     // console.log("Update Status Effect Triggered:", updateStatus);

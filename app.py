@@ -1,4 +1,5 @@
 import logging
+from logging.handlers import RotatingFileHandler
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone
 from pydantic import BaseModel
@@ -23,7 +24,15 @@ import threading
 import os
 
 # 配置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.WARNING,  # 改为WARNING级别，减少日志输出
+    format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s',
+    # 限制日志文件大小
+    handlers=[
+        RotatingFileHandler('logs/backend.log', maxBytes=10*1024*1024, backupCount=5),  # 10MB，保留5个备份
+        logging.StreamHandler()
+    ]
+)
 
 full_market_update_status = {
     "A股": {"status": "空闲", "message": "未开始", "progress": 0},
@@ -39,12 +48,24 @@ load_dotenv()
 app = FastAPI(
     title="股票估值分析系统",
     description="基于FastAPI的股票估值分析系统，支持自动获取股票数据",
-    version="1.0.0"
+    version="1.0.0",
+    # 性能优化配置
+    docs_url=None,  # 生产环境禁用文档
+    redoc_url=None,  # 生产环境禁用文档
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3002", "http://127.0.0.1:3002"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3002",
+        "http://127.0.0.1:3002",
+        "http://43.143.50.170:8980",  # 添加您的服务器公网IP和前端端口
+        "http://43.143.50.170:3000",  # 如果前端在其他端口
+        "http://43.143.50.170:5005",  # 后端端口（如果需要）
+        "http://43.143.50.170:5006",  # 后端端口（如果需要）
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,7 +73,14 @@ app.add_middleware(
 )
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./stock_valuation.db"
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    # 数据库连接池优化
+    pool_pre_ping=True,
+    pool_recycle=3600,  # 1小时后回收连接
+    echo=False  # 关闭SQL日志
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -585,11 +613,11 @@ async def update_watchlist_stocks():
         await run_in_threadpool(lambda: db.close())
 
 def run_scheduler():
-    schedule.every(30).minutes.do(lambda: asyncio.run(update_watchlist_stocks()))
+    schedule.every(60).minutes.do(lambda: asyncio.run(update_watchlist_stocks()))  # 改为每60分钟
     schedule.every().day.at("02:00").do(lambda: asyncio.run(update_full_market_data_overall()))
     while True:
         schedule.run_pending()
-        time.sleep(60)
+        time.sleep(120)  # 改为每2分钟检查一次
 
 @app.on_event("startup")
 async def startup_event():
