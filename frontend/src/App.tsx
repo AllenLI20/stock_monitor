@@ -14,7 +14,7 @@ import Watchlist from './pages/Watchlist'; // 导入新页面
 
 // 获取后端端口，优先从环境变量中读取，否则使用默认值5000
 const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || 5000;
-const API_BASE_URL = `http://localhost:${BACKEND_PORT}/stock_api`;
+export const API_BASE_URL = `http://localhost:${BACKEND_PORT}/stock_api`;
 
 // 自定义主题配置
 const theme = {

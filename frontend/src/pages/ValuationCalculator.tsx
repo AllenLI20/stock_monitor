@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { Card, Row, Col, Input, Button, Statistic, Space, message, Typography } from 'antd';
 import { CalculatorOutlined } from '@ant-design/icons';
 import axios from 'axios';
-
-const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || 5000;
-const API_BASE_URL = `http://localhost:${BACKEND_PORT}/stock_api`;
+import { API_BASE_URL } from '../App';
 
 const { Title, Paragraph } = Typography;
 

@@ -44,10 +44,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3002", "http://127.0.0.1:3002"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Total-Count"], # 暴露 X-Total-Count 头部
 )
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./stock_valuation.db"
@@ -604,8 +605,17 @@ async def root():
     return {"message": "股票估值分析系统API", "version": "1.0.0"}
 
 @app.get("/stock_api/stocks", response_model=List[StockResponse])
-async def get_stocks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    stocks = await run_in_threadpool(lambda: db.query(Stock).order_by(Stock.last_updated.desc()).offset(skip).limit(limit).all())
+async def get_stocks(
+    response: Response, # Add Response here
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Stock)
+    total_stocks = await run_in_threadpool(lambda: query.count()) # Get total count
+    response.headers["X-Total-Count"] = str(total_stocks) # Set X-Total-Count header
+
+    stocks = await run_in_threadpool(lambda: query.order_by(Stock.last_updated.desc()).offset(skip).limit(limit).all())
     return stocks
 
 @app.get("/stock_api/whole_market_stocks", response_model=List[WholeMarketStockResponse])
@@ -932,4 +942,6 @@ async def trigger_full_market_update(background_tasks: BackgroundTasks):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    import os
+    BACKEND_PORT = int(os.getenv("BACKEND_PORT", 5000))
+    uvicorn.run(app, host="0.0.0.0", port=BACKEND_PORT)

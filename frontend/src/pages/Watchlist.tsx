@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, message, Tag, Tooltip } from 'antd';
+import { Table, Button, message, Tag, Tooltip, Pagination } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
 import { DeleteOutlined } from '@ant-design/icons';
+import { API_BASE_URL } from '../App'; // Import API_BASE_URL
 
 interface Stock {
   id: number;
@@ -155,6 +156,9 @@ const Watchlist: React.FC = () => {
     current: 1,
     pageSize: 10,
     total: 0,
+    showSizeChanger: true, // 允许改变每页显示数量
+    pageSizeOptions: ['10', '20', '50', '100'], // 可选的每页显示数量
+    showQuickJumper: true, // 允许快速跳转到某一页
   });
 
   const fetchWatchlistStocks = useCallback(async (currentPage = 1, pageSize = 10) => {
@@ -164,7 +168,7 @@ const Watchlist: React.FC = () => {
         skip: (currentPage - 1) * pageSize,
         limit: pageSize,
       };
-      const response = await axios.get('/stock_api/stocks', { params });
+      const response = await axios.get(`${API_BASE_URL}/stocks`, { params });
       setStocks(response.data);
       setPagination(prev => ({
         ...prev,
@@ -185,14 +189,30 @@ const Watchlist: React.FC = () => {
   }, [fetchWatchlistStocks, pagination.current, pagination.pageSize]);
 
   const handleTableChange = (newPagination: any) => {
-    setPagination(prev => ({ ...prev, ...newPagination }));
+    // Table组件的onChange事件在排序或过滤时也会触发，但Pagination组件本身会处理页码和每页数量的变化
+    // 所以这里只需要确保排序或过滤时，fetchWatchlistStocks被调用即可，但Watchlist目前没有排序和过滤功能
+    // 因此，这个函数在引入Pagination组件后，可以暂时不做实际操作，或者只处理排序/过滤（如果以后添加）
+    // 如果 Table 组件需要处理排序或过滤，则可以在这里添加逻辑
+    // const currentPage = newPagination.current;
+    // const pageSize = newPagination.pageSize;
+    // fetchWatchlistStocks(currentPage, pageSize);
+  };
+
+  const handlePageChange = (page: number, pageSize?: number) => {
+    setPagination(prev => ({ ...prev, current: page, pageSize: pageSize || prev.pageSize }));
+    fetchWatchlistStocks(page, pageSize || pagination.pageSize);
+  };
+
+  const handlePageSizeChange = (current: number, size: number) => {
+    setPagination(prev => ({ ...prev, current: 1, pageSize: size })); // 改变每页大小时回到第一页
+    fetchWatchlistStocks(1, size);
   };
 
   const handleRemoveFromWatchlist = async (record: Stock) => {
     setLoading(true);
     try {
       // 调用删除自选股的API，同时会更新whole_market_stocks的is_watchlist状态
-      await axios.delete(`/stock_api/stocks/${record.symbol}`);
+      await axios.delete(`${API_BASE_URL}/stocks/${record.symbol}`);
       message.success(`已将 ${record.name} 从自选移除`);
       // 刷新数据
       fetchWatchlistStocks(pagination.current, pagination.pageSize);
@@ -329,17 +349,22 @@ const Watchlist: React.FC = () => {
         dataSource={stocks}
         rowKey="id"
         loading={loading}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: pagination.total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          onChange: (page, pageSize) => handleTableChange({ current: page, pageSize: pageSize }),
-        }}
+        pagination={false} // 关闭 Table 内部的分页
         onChange={handleTableChange}
         size="small"
       />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+        <Pagination
+          current={pagination.current}
+          pageSize={pagination.pageSize}
+          total={pagination.total}
+          showSizeChanger={pagination.showSizeChanger}
+          pageSizeOptions={pagination.pageSizeOptions}
+          showQuickJumper={pagination.showQuickJumper}
+          onChange={handlePageChange}
+          onShowSizeChange={handlePageSizeChange}
+        />
+      </div>
     </div>
   );
 };

@@ -1,174 +1,82 @@
 #!/bin/bash
 
-echo "🛑 停止股票估值分析系统服务"
-echo "============================"
+# 定义默认端口
+DEFAULT_FRONTEND_PORT=3000
+DEFAULT_BACKEND_PORT=5000
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+# 从命令行参数读取端口号，如果未提供则使用默认值
+FRONTEND_PORT=${1:-$DEFAULT_FRONTEND_PORT}
+BACKEND_PORT=${2:-$DEFAULT_BACKEND_PORT}
+
+echo "正在停止股票估值分析系统服务..."
 
 # 停止后端服务
-stop_backend() {
-    if [ -f ".backend_pid" ]; then
-        BACKEND_PID=$(cat .backend_pid)
-        if kill -0 $BACKEND_PID 2>/dev/null; then
-            echo -e "${BLUE}停止后端服务 (PID: $BACKEND_PID)...${NC}"
-            kill $BACKEND_PID
-            sleep 2
-            if kill -0 $BACKEND_PID 2>/dev/null; then
-                echo -e "${YELLOW}强制停止后端服务...${NC}"
-                kill -9 $BACKEND_PID
-            fi
-            echo -e "${GREEN}✅ 后端服务已停止${NC}"
-        else
-            echo -e "${YELLOW}后端服务进程不存在${NC}"
-        fi
-        rm -f .backend_pid .backend_port
+if [ -f "backend.pid" ]; then
+    BACKEND_PID=$(cat backend.pid)
+    if ps -p $BACKEND_PID > /dev/null; then
+        echo "正在停止后端服务 (PID: $BACKEND_PID)"
+        kill $BACKEND_PID
+        # 等待进程完全停止
+        wait $BACKEND_PID 2>/dev/null
+        echo "后端服务已停止。"
     else
-        echo -e "${YELLOW}未找到后端服务PID文件${NC}"
+        echo "后端PID文件存在，但进程 $BACKEND_PID 未运行。"
     fi
-}
+    rm backend.pid
+else
+    echo "未找到后端PID文件 (backend.pid)。"
+fi
 
 # 停止前端服务
-stop_frontend() {
-    if [ -f ".frontend_pid" ]; then
-        FRONTEND_PID=$(cat .frontend_pid)
-        if kill -0 $FRONTEND_PID 2>/dev/null; then
-            echo -e "${BLUE}停止前端服务 (PID: $FRONTEND_PID)...${NC}"
-            kill $FRONTEND_PID
-            sleep 2
-            if kill -0 $FRONTEND_PID 2>/dev/null; then
-                echo -e "${YELLOW}强制停止前端服务...${NC}"
-                kill -9 $FRONTEND_PID
-            fi
-            echo -e "${GREEN}✅ 前端服务已停止${NC}"
-        else
-            echo -e "${YELLOW}前端服务进程不存在${NC}"
-        fi
-        rm -f .frontend_pid .frontend_port
+if [ -f "frontend.pid" ]; then
+    FRONTEND_PID=$(cat frontend.pid)
+    if ps -p $FRONTEND_PID > /dev/null; then
+        echo "正在停止前端服务 (PID: $FRONTEND_PID)"
+        kill $FRONTEND_PID
+        # 等待进程完全停止
+        wait $FRONTEND_PID 2>/dev/null
+        echo "前端服务已停止。"
     else
-        echo -e "${YELLOW}未找到前端服务PID文件${NC}"
+        echo "前端PID文件存在，但进程 $FRONTEND_PID 未运行。"
     fi
-}
+    rm frontend.pid
+else
+    echo "未找到前端PID文件 (frontend.pid)。"
+fi
 
-# 清理端口占用
-cleanup_ports() {
-    echo -e "${BLUE}清理端口占用...${NC}"
+# 清理可能残留的端口占用
+echo "正在清理可能残留的端口占用..."
 
-    # 清理5000端口
-    BACKEND_PROCESS=$(lsof -ti:5000 2>/dev/null)
-    if [ ! -z "$BACKEND_PROCESS" ]; then
-        echo -e "${YELLOW}发现5000端口占用，正在清理...${NC}"
-        kill -9 $BACKEND_PROCESS 2>/dev/null
-        echo -e "${GREEN}✅ 5000端口已清理${NC}"
+# 尝试清理默认前端端口
+LSOF_FRONTEND_DEFAULT=$(lsof -i :$DEFAULT_FRONTEND_PORT -sTCP:LISTEN -t)
+if [ -n "$LSOF_FRONTEND_DEFAULT" ]; then
+    echo "强制杀死占用默认前端端口 $DEFAULT_FRONTEND_PORT 的进程: $LSOF_FRONTEND_DEFAULT"
+    kill -9 $LSOF_FRONTEND_DEFAULT
+fi
+
+# 尝试清理用户指定的前端端口
+if [ "$FRONTEND_PORT" -ne "$DEFAULT_FRONTEND_PORT" ]; then
+    LSOF_FRONTEND_CUSTOM=$(lsof -i :$FRONTEND_PORT -sTCP:LISTEN -t)
+    if [ -n "$LSOF_FRONTEND_CUSTOM" ]; then
+        echo "强制杀死占用指定前端端口 $FRONTEND_PORT 的进程: $LSOF_FRONTEND_CUSTOM"
+        kill -9 $LSOF_FRONTEND_CUSTOM
     fi
+fi
 
-    # 清理5001端口
-    BACKEND_PROCESS=$(lsof -ti:5001 2>/dev/null)
-    if [ ! -z "$BACKEND_PROCESS" ]; then
-        echo -e "${YELLOW}发现5001端口占用，正在清理...${NC}"
-        kill -9 $BACKEND_PROCESS 2>/dev/null
-        echo -e "${GREEN}✅ 5001端口已清理${NC}"
+# 尝试清理默认后端端口
+LSOF_BACKEND_DEFAULT=$(lsof -i :$DEFAULT_BACKEND_PORT -sTCP:LISTEN -t)
+if [ -n "$LSOF_BACKEND_DEFAULT" ]; then
+    echo "强制杀死占用默认后端端口 $DEFAULT_BACKEND_PORT 的进程: $LSOF_BACKEND_DEFAULT"
+    kill -9 $LSOF_BACKEND_DEFAULT
+fi
+
+# 尝试清理用户指定的后端端口
+if [ "$BACKEND_PORT" -ne "$DEFAULT_BACKEND_PORT" ]; then
+    LSOF_BACKEND_CUSTOM=$(lsof -i :$BACKEND_PORT -sTCP:LISTEN -t)
+    if [ -n "$LSOF_BACKEND_CUSTOM" ]; then
+        echo "强制杀死占用指定后端端口 $BACKEND_PORT 的进程: $LSOF_BACKEND_CUSTOM"
+        kill -9 $LSOF_BACKEND_CUSTOM
     fi
+fi
 
-    # 清理8000端口
-    BACKEND_PROCESS=$(lsof -ti:8000 2>/dev/null)
-    if [ ! -z "$BACKEND_PROCESS" ]; then
-        echo -e "${YELLOW}发现8000端口占用，正在清理...${NC}"
-        kill -9 $BACKEND_PROCESS 2>/dev/null
-        echo -e "${GREEN}✅ 8000端口已清理${NC}"
-    fi
-
-    # 清理8001端口
-    BACKEND_PROCESS=$(lsof -ti:8001 2>/dev/null)
-    if [ ! -z "$BACKEND_PROCESS" ]; then
-        echo -e "${YELLOW}发现8001端口占用，正在清理...${NC}"
-        kill -9 $BACKEND_PROCESS 2>/dev/null
-        echo -e "${GREEN}✅ 8001端口已清理${NC}"
-    fi
-
-    # 清理3000端口
-    FRONTEND_PROCESS=$(lsof -ti:3000 2>/dev/null)
-    if [ ! -z "$FRONTEND_PROCESS" ]; then
-        echo -e "${YELLOW}发现3000端口占用，正在清理...${NC}"
-        kill -9 $FRONTEND_PROCESS 2>/dev/null
-        echo -e "${GREEN}✅ 3000端口已清理${NC}"
-    fi
-
-    # 清理3001端口
-    FRONTEND_PROCESS=$(lsof -ti:3001 2>/dev/null)
-    if [ ! -z "$FRONTEND_PROCESS" ]; then
-        echo -e "${YELLOW}发现3001端口占用，正在清理...${NC}"
-        kill -9 $FRONTEND_PROCESS 2>/dev/null
-        echo -e "${GREEN}✅ 3001端口已清理${NC}"
-    fi
-}
-
-# 显示状态
-show_status() {
-    echo ""
-    echo -e "${GREEN}🎯 服务状态检查${NC}"
-    echo "=================="
-
-    # 检查后端端口
-    if lsof -Pi :5000 -sTCP:LISTEN -t >/dev/null ; then
-        echo -e "${RED}❌ 5000端口仍被占用${NC}"
-    else
-        echo -e "${GREEN}✅ 5000端口已释放${NC}"
-    fi
-
-    if lsof -Pi :5001 -sTCP:LISTEN -t >/dev/null ; then
-        echo -e "${RED}❌ 5001端口仍被占用${NC}"
-    else
-        echo -e "${GREEN}✅ 5001端口已释放${NC}"
-    fi
-
-    # 检查8000端口
-    if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null ; then
-        echo -e "${RED}❌ 8000端口仍被占用${NC}"
-    else
-        echo -e "${GREEN}✅ 8000端口已释放${NC}"
-    fi
-
-    if lsof -Pi :8001 -sTCP:LISTEN -t >/dev/null ; then
-        echo -e "${RED}❌ 8001端口仍被占用${NC}"
-    else
-        echo -e "${GREEN}✅ 8001端口已释放${NC}"
-    fi
-
-    # 检查前端端口
-    if lsof -Pi :3000 -sTCP:LISTEN -t >/dev/null ; then
-        echo -e "${RED}❌ 3000端口仍被占用${NC}"
-    else
-        echo -e "${GREEN}✅ 3000端口已释放${NC}"
-    fi
-
-    if lsof -Pi :3001 -sTCP:LISTEN -t >/dev/null ; then
-        echo -e "${RED}❌ 3001端口仍被占用${NC}"
-    else
-        echo -e "${GREEN}✅ 3001端口已释放${NC}"
-    fi
-}
-
-# 主函数
-main() {
-    echo -e "${YELLOW}正在停止所有服务...${NC}"
-
-    stop_backend
-    stop_frontend
-    cleanup_ports
-
-    echo ""
-    echo -e "${GREEN}🎉 所有服务已停止${NC}"
-
-    show_status
-
-    echo ""
-    echo -e "${BLUE}如需重新启动，请运行: ./start_all.sh${NC}"
-}
-
-# 运行主函数
-main
+echo "所有服务停止完成。"

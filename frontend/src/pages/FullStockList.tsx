@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Select, Input, Button, Space, message, Typography, Progress } from 'antd';
+import { Table, Select, Input, Button, Space, message, Typography, Progress, Pagination } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
 import { StarOutlined, StarFilled } from '@ant-design/icons';
+import { API_BASE_URL } from '../App'; // Import API_BASE_URL
 
 const { Option } = Select;
 const { Search } = Input;
@@ -25,7 +26,13 @@ const FullStockList: React.FC = () => {
     current: 1,
     pageSize: 10,
     total: 0,
+    showSizeChanger: true, // 允许改变每页显示数量
+    pageSizeOptions: ['10', '20', '50', '100'], // 可选的每页显示数量
+    showQuickJumper: true, // 允许快速跳转到某一页
   });
+
+  console.log('Pagination state:', pagination);
+
   const [filters, setFilters] = useState({
     market: undefined as string | undefined,
     searchQuery: undefined as string | undefined,
@@ -54,13 +61,18 @@ const FullStockList: React.FC = () => {
       };
       // 为了获取总数，后端需要返回 X-Total-Count 头，或者在响应体中包含总数。
       // 假设后端会返回 X-Total-Count
-      const response = await axios.get('/stock_api/whole_market_stocks', { params });
+      const response = await axios.get(`${API_BASE_URL}/whole_market_stocks`, { params });
+      console.log('Backend Response:', response);
+      console.log('Response Headers:', response.headers);
+      const totalCount = parseInt(response.headers['x-total-count'] || '0', 10);
+      console.log('Parsed X-Total-Count:', totalCount);
+
       setStocks(response.data);
       setPagination(prev => ({
         ...prev,
         current: currentPage,
         pageSize: pageSize,
-        total: parseInt(response.headers['x-total-count'] || '0', 10), // 从响应头获取总数
+        total: totalCount, // 从响应头获取总数
       }));
     } catch (error) {
       console.error('获取全市场股票数据失败:', error);
@@ -81,7 +93,7 @@ const FullStockList: React.FC = () => {
 
   const fetchUpdateStatus = async () => {
     try {
-      const response = await axios.get('/stock_api/full_market_update_status');
+      const response = await axios.get(`${API_BASE_URL}/full_market_update_status`);
       setUpdateProgress(response.data);
       // 检查所有市场是否都已完成或失败，如果是，则停止轮询
       const allMarketsCompleted = Object.values(response.data).every((market: any) =>
@@ -100,7 +112,10 @@ const FullStockList: React.FC = () => {
   };
 
   const handleTableChange = (newPagination: any, antTableFilters: any, sorter: any) => {
-    setPagination(prev => ({ ...prev, ...newPagination }));
+    // 这里不再需要直接更新 pagination state，因为 Pagination 组件会通过 onShowSizeChange 和 onChange 回调处理
+    // 但仍然需要从 newPagination 中获取 current 和 pageSize 来调用 fetchStocks
+    const currentPage = newPagination.current;
+    const pageSize = newPagination.pageSize;
 
     // 处理排序
     let sortField = undefined;
@@ -113,15 +128,25 @@ const FullStockList: React.FC = () => {
     setCurrentSortOrder(sortOrder);
 
     // 处理筛选 (目前只处理market)
-    const marketFilter = antTableFilters.market ? antTableFilters.market[0] : filters.market; // Use existing filter if not explicitly changed by table
+    const marketFilter = antTableFilters.market ? antTableFilters.market[0] : filters.market;
+    // 这里需要更新 pagination state 中的 current 和 pageSize，以保持与 Pagination 组件同步
+    setPagination(prev => ({ ...prev, current: currentPage, pageSize: pageSize }));
+    fetchStocks(currentPage, pageSize, marketFilter, filters.searchQuery, sortField, sortOrder);
+  };
 
-    fetchStocks(newPagination.current, newPagination.pageSize, marketFilter, filters.searchQuery, sortField, sortOrder);
+  const handlePageChange = (page: number, pageSize?: number) => {
+    setPagination(prev => ({ ...prev, current: page, pageSize: pageSize || prev.pageSize }));
+    fetchStocks(page, pageSize || pagination.pageSize, filters.market, filters.searchQuery, currentSortField, currentSortOrder);
+  };
+
+  const handlePageSizeChange = (current: number, size: number) => {
+    setPagination(prev => ({ ...prev, current: 1, pageSize: size })); // 改变每页大小时回到第一页
+    fetchStocks(1, size, filters.market, filters.searchQuery, currentSortField, currentSortOrder);
   };
 
   const handleMarketChange = (value: string) => {
     setFilters(prev => ({ ...prev, market: value }));
     setPagination(prev => ({ ...prev, current: 1 }));
-    // 在这里重新调用 fetchStocks，因为市场筛选条件改变了，同时保留当前的排序状态
     fetchStocks(1, pagination.pageSize, value, filters.searchQuery, currentSortField, currentSortOrder);
   };
 
@@ -137,7 +162,7 @@ const FullStockList: React.FC = () => {
     try {
       const newWatchlistStatus = !record.is_watchlist;
       await axios.put(
-        `/stock_api/whole_market_stocks/${record.symbol}/watchlist`,
+        `${API_BASE_URL}/whole_market_stocks/${record.symbol}/watchlist`,
         { market: record.market, is_watchlist: newWatchlistStatus }
       );
       message.success(newWatchlistStatus ? `已将 ${record.name} 添加到自选` : `已将 ${record.name} 从自选移除`);
@@ -155,11 +180,11 @@ const FullStockList: React.FC = () => {
   const handleTriggerMarketUpdate = async (marketType: string) => {
     setUpdatingMarkets(prev => ({ ...prev, [marketType]: true }));
     try {
-      const response = await axios.post('/stock_api/trigger_full_market_update_by_market', { market: marketType });
+      const response = await axios.post(`${API_BASE_URL}/trigger_full_market_update_by_market`, { market: marketType });
       message.success(response.data.message || `${marketType} 全市场股票数据更新任务已成功触发！`);
       // 启动进度轮询
       if (!progressIntervalId) {
-        const id = setInterval(fetchUpdateStatus, 2000) as unknown as number; // 每2秒查询一次
+        const id = setInterval(fetchUpdateStatus, 10000) as unknown as number; // 每10秒查询一次
         setProgressIntervalId(id);
       }
     } catch (error) {
@@ -174,11 +199,11 @@ const FullStockList: React.FC = () => {
   const handleTriggerOverallUpdate = async () => {
     setUpdatingMarkets(prev => ({ ...prev, 'overall': true }));
     try {
-      const response = await axios.post('/stock_api/trigger_full_market_update'); // 恢复触发所有市场更新功能
+      const response = await axios.post(`${API_BASE_URL}/trigger_full_market_update`); // 恢复触发所有市场更新功能
       message.success(response.data.message || '全市场股票数据整体更新任务已成功触发！');
       // 启动进度轮询
       if (!progressIntervalId) {
-        const id = setInterval(fetchUpdateStatus, 2000) as unknown as number; // 每2秒查询一次
+        const id = setInterval(fetchUpdateStatus, 5000) as unknown as number; // 每5秒查询一次
         setProgressIntervalId(id);
       }
     } catch (error) {
@@ -339,17 +364,22 @@ const FullStockList: React.FC = () => {
         dataSource={stocks}
         rowKey="id"
         loading={loading}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: pagination.total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          onChange: (page, pageSize) => setPagination(prev => ({ ...prev, current: page, pageSize: pageSize })), // 直接更新分页状态
-        }}
+        pagination={false} // 关闭 Table 内部的分页
         onChange={handleTableChange}
         size="small"
       />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+        <Pagination
+          current={pagination.current}
+          pageSize={pagination.pageSize}
+          total={pagination.total}
+          showSizeChanger={pagination.showSizeChanger}
+          pageSizeOptions={pagination.pageSizeOptions}
+          showQuickJumper={pagination.showQuickJumper}
+          onChange={handlePageChange}
+          onShowSizeChange={handlePageSizeChange}
+        />
+      </div>
     </div>
   );
 };

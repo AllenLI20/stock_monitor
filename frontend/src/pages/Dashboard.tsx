@@ -13,10 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { message, Modal, Input, notification } from 'antd'; // New imports for Modal, Input, notification
-
-// 获取后端端口，优先从环境变量中读取，否则使用默认值5000
-const BACKEND_PORT = process.env.REACT_APP_BACKEND_PORT || 5000;
-const API_BASE_URL = `http://localhost:${BACKEND_PORT}/stock_api`;
+import { API_BASE_URL } from '../App'; // Import API_BASE_URL
 
 const { Title, Paragraph } = Typography;
 const { TextArea } = Input; // Destructure TextArea
