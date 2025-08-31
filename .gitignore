@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment variables (包含敏感信息)
+.env
+
+# Database files
+*.xlsx
+*.db
+*.log
+logs/
+
+# PID files
+*.pid
+*.port
+.*_pid
+.*_port
+node_modules

@@ -1,0 +1,16 @@
+--index-url https://pypi.tuna.tsinghua.edu.cn/simple
+
+aiohttp==3.11.13
+akshare==1.17.44
+asyncio-throttle==1.0.2
+fastapi==0.104.1
+numpy
+pandas
+pydantic==2.5.0
+python-dotenv
+python-multipart==0.0.6
+requests==2.31.0
+schedule==1.2.0
+sqlalchemy==2.0.23
+uvicorn[standard]==0.24.0
+tenacity==8.2.3
