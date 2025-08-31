@@ -637,9 +637,32 @@ async def get_stocks(
     response: Response, # Add Response here
     skip: int = 0,
     limit: int = 100,
+    search_query: Optional[str] = None, # Add search_query parameter
+    market: Optional[str] = None,       # Add market parameter
+    valuation_status: Optional[str] = None, # Add valuation_status parameter
     db: Session = Depends(get_db)
 ):
     query = db.query(Stock)
+
+    if search_query:
+        query = query.filter(Stock.name.contains(search_query) | Stock.symbol.contains(search_query))
+
+    if market:
+        query = query.filter(Stock.market == market)
+
+    # Handle valuation_status filter
+    if valuation_status:
+        if valuation_status == "低估":
+            query = query.filter(Stock.current_pe < Stock.calculated_pe_lower)
+        elif valuation_status == "合理":
+            query = query.filter(Stock.current_pe >= Stock.calculated_pe_lower, Stock.current_pe <= Stock.calculated_pe_upper)
+        elif valuation_status == "高估":
+            query = query.filter(Stock.current_pe > Stock.calculated_pe_upper)
+        elif valuation_status == "数据缺失":
+            query = query.filter(Stock.current_pe == None, Stock.calculated_pe_lower == None, Stock.calculated_pe_upper == None)
+        else:
+            raise HTTPException(status_code=400, detail="无效的估值状态筛选器")
+
     total_stocks = await run_in_threadpool(lambda: query.count()) # Get total count
     response.headers["X-Total-Count"] = str(total_stocks) # Set X-Total-Count header
 

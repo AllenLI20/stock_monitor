@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, message, Tag, Tooltip, Pagination } from 'antd';
+import { Table, Button, message, Tag, Tooltip, Pagination, Space, Input, Select } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import axios from 'axios';
 import { DeleteOutlined } from '@ant-design/icons';
@@ -157,16 +157,22 @@ const Watchlist: React.FC = () => {
     pageSize: 10,
     total: 0,
     showSizeChanger: true, // 允许改变每页显示数量
-    pageSizeOptions: ['10', '20', '50', '100'], // 可选的每页显示数量
+    pageSizeOptions: [10, 20, 50, 100], // 可选的每页显示数量
     showQuickJumper: true, // 允许快速跳转到某一页
   });
+  const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined); // 新增搜索查询状态
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined); // 新增估值状态筛选状态
+  const [marketFilter, setMarketFilter] = useState<string | undefined>(undefined); // 新增市场筛选状态
 
-  const fetchWatchlistStocks = useCallback(async (currentPage = 1, pageSize = 10) => {
+  const fetchWatchlistStocks = useCallback(async (currentPage = 1, pageSize = 10, query?: string, status?: string, market?: string) => {
     setLoading(true);
     try {
       const params = {
         skip: (currentPage - 1) * pageSize,
         limit: pageSize,
+        ...(query && { search_query: query }), // 添加搜索查询参数
+        ...(status && { valuation_status: status }), // 添加估值状态筛选参数
+        ...(market && { market: market }), // 添加市场筛选参数
       };
       const response = await axios.get(`${API_BASE_URL}/stocks`, { params });
       setStocks(response.data);
@@ -185,16 +191,16 @@ const Watchlist: React.FC = () => {
   }, []); // 空数组表示这个函数只在组件挂载时创建一次
 
   useEffect(() => {
-    fetchWatchlistStocks(pagination.current, pagination.pageSize);
-  }, [fetchWatchlistStocks, pagination.current, pagination.pageSize]);
+    fetchWatchlistStocks(pagination.current, pagination.pageSize, searchQuery, statusFilter, marketFilter);
+  }, [fetchWatchlistStocks, pagination.current, pagination.pageSize, searchQuery, statusFilter, marketFilter]); // 添加 marketFilter 依赖
 
   const handleTableChange = (newPagination: any, antTableFilters: any, sorter: any) => {
     // Table组件的onChange事件在排序或过滤时也会触发，但Pagination组件本身会处理页码和每页数量的变化
     // 所以这里只需要确保排序或过滤时，fetchWatchlistStocks被调用即可，但Watchlist目前没有排序和过滤功能
     // 因此，这个函数在引入Pagination组件后，可以暂时不做实际操作，或者只处理排序/过滤（如果以后添加）
     // 如果 Table 组件需要处理排序或过滤，则可以在这里添加逻辑
-    const currentPage = newPagination.current;
-    const pageSize = newPagination.pageSize;
+    const currentPage = newPagination.current || pagination.current; // 使用当前pagination状态作为fallback
+    const pageSize = newPagination.pageSize || pagination.pageSize; // 使用当前pagination状态作为fallback
 
     let sortField = undefined;
     let sortOrder: 'asc' | 'desc' | undefined = undefined;
@@ -209,17 +215,35 @@ const Watchlist: React.FC = () => {
       pageSize: pageSize,
       // total 已经在 fetchWatchlistStocks 中更新，这里不需要再从 newPagination 获取
     }));
-    fetchWatchlistStocks(currentPage, pageSize);
+    fetchWatchlistStocks(currentPage, pageSize, searchQuery, statusFilter, marketFilter); // 传递 searchQuery
   };
 
   const handlePageChange = (page: number, pageSize?: number) => {
     setPagination(prev => ({ ...prev, current: page, pageSize: pageSize || prev.pageSize }));
-    fetchWatchlistStocks(page, pageSize || pagination.pageSize);
+    fetchWatchlistStocks(page, pageSize || pagination.pageSize, searchQuery, statusFilter, marketFilter); // 传递 searchQuery
   };
 
   const handlePageSizeChange = (current: number, size: number) => {
     setPagination(prev => ({ ...prev, current: 1, pageSize: size })); // 改变每页大小时回到第一页
-    fetchWatchlistStocks(1, size);
+    fetchWatchlistStocks(1, size, searchQuery, statusFilter, marketFilter); // 传递 searchQuery
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    setPagination(prev => ({ ...prev, current: 1 })); // 搜索时重置回第一页
+    fetchWatchlistStocks(1, pagination.pageSize, value, statusFilter, marketFilter); // 传递搜索值
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setPagination(prev => ({ ...prev, current: 1 })); // 筛选时重置回第一页
+    fetchWatchlistStocks(1, pagination.pageSize, searchQuery, value, marketFilter); // 传递筛选值
+  };
+
+  const handleMarketFilterChange = (value: string) => {
+    setMarketFilter(value);
+    setPagination(prev => ({ ...prev, current: 1 })); // 筛选时重置回第一页
+    fetchWatchlistStocks(1, pagination.pageSize, searchQuery, statusFilter, value); // 传递筛选值
   };
 
   const handleRemoveFromWatchlist = async (record: Stock) => {
@@ -358,6 +382,35 @@ const Watchlist: React.FC = () => {
   return (
     <div className="container">
       <h1 className="page-title">我的自选股票</h1>
+      <Space style={{ marginBottom: 16 }}>
+        <Input.Search
+          placeholder="搜索股票代码或名称"
+          onSearch={handleSearch}
+          style={{ width: 200 }}
+          allowClear
+        />
+        <Select
+          placeholder="筛选估值状态"
+          style={{ width: 150 }}
+          onChange={handleStatusFilterChange}
+          allowClear
+        >
+          <Select.Option value="低估">低估</Select.Option>
+          <Select.Option value="合理">合理</Select.Option>
+          <Select.Option value="高估">高估</Select.Option>
+          <Select.Option value="数据缺失">数据缺失</Select.Option>
+        </Select>
+        <Select
+          placeholder="筛选市场"
+          style={{ width: 150 }}
+          onChange={handleMarketFilterChange}
+          allowClear
+        >
+          <Select.Option value="A股">A股</Select.Option>
+          <Select.Option value="H股">H股</Select.Option>
+          <Select.Option value="美股">美股</Select.Option>
+        </Select>
+      </Space>
       <Table
         columns={columns}
         dataSource={stocks}
