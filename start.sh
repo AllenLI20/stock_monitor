@@ -56,7 +56,7 @@ BACKEND_PORT=${BACKEND_PORT} uvicorn app:app \
     --http httptools \
     --reload \
     --log-level info \
-    &> logs/backend.log &
+    > logs/backend.log 2>&1 & # 确保所有输出都被重定向
 
 BACKEND_PID=$!
 echo $BACKEND_PID > backend.pid
@@ -82,7 +82,7 @@ REACT_APP_BACKEND_PORT=${BACKEND_PORT} \
 HOST=0.0.0.0 \
 PORT=${FRONTEND_PORT} \
 npm start \
-&> ../logs/frontend.log &
+> ../logs/frontend.log 2>&1 & # 确保所有输出都被重定向
 
 FRONTEND_PID=$!
 echo $FRONTEND_PID > ../frontend.pid
