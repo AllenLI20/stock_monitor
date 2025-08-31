@@ -29,8 +29,8 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s',
     # 限制日志文件大小
     handlers=[
-        RotatingFileHandler('logs/backend.log', maxBytes=10*1024*1024, backupCount=5),  # 10MB，保留5个备份
-        logging.StreamHandler()
+        RotatingFileHandler('logs/backend.log', maxBytes=10*1024*1024, backupCount=5),  # 文件输出
+        # Removed logging.StreamHandler() to prevent console output
     ]
 )
 
