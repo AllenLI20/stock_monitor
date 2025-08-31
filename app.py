@@ -25,7 +25,7 @@ import os
 
 # 配置日志
 logging.basicConfig(
-    level=logging.WARNING,  # 改为WARNING级别，减少日志输出
+    level=logging.INFO,  # 改为WARNING级别，减少日志输出
     format='%(asctime)s - %(levelname)s - %(filename)s - %(lineno)d - %(message)s',
     # 限制日志文件大小
     handlers=[
@@ -61,10 +61,13 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:3002",
         "http://127.0.0.1:3002",
-        "http://43.143.50.170:8980",  # 添加您的服务器公网IP和前端端口
-        "http://43.143.50.170:3000",  # 如果前端在其他端口
-        "http://43.143.50.170:5005",  # 后端端口（如果需要）
-        "http://43.143.50.170:5006",  # 后端端口（如果需要）
+        "http://43.143.50.170:8980",
+        "http://43.143.50.170:3000",
+        "http://43.143.50.170:5005",
+        "http://43.143.50.170:5006",
+        "http://dashboard.tonghe.site:8980", # 添加新的域名来源
+        "http://dashboard.tonghe.site:5005", # 添加新的域名来源
+        "http://dashboard.tonghe.site:3000", # 添加新的域名来源
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -174,9 +177,6 @@ class WholeMarketStockBase(BaseModel):
 
 class WholeMarketStockResponse(WholeMarketStockBase):
     id: int
-
-    class Config:
-        from_attributes = True
 
 class ValuationRequest(BaseModel):
     book_value_per_share: float

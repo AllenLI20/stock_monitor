@@ -55,7 +55,7 @@ BACKEND_PORT=${BACKEND_PORT} uvicorn app:app \
     --loop uvloop \
     --http httptools \
     --reload \
-    --log-level warning \
+    --log-level info \
     &> logs/backend.log &
 
 BACKEND_PID=$!
